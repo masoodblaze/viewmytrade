@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "637539887913",
+    "project_id": "viewouroptiontrade-5f91c",
+    "storage_bucket": "viewouroptiontrade-5f91c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637539887913:android:05b9c2d302020f5f2b2538",
+        "android_client_info": {
+          "package_name": "com.example.viewmytrade"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXW7266bHXBLny1-bDqTnbS7UFYuOPItg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
