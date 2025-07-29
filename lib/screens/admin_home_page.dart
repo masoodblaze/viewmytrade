@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:viewmytrade/widgets/page_wrapper.dart';
 
 class AdminHomePage extends StatefulWidget {
@@ -42,13 +42,27 @@ class _AdminHomePageState extends State<AdminHomePage> {
           snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
       setState(() {
-        errorMsg = 'Error creating user: ${e.toString()}';
+        errorMsg = 'Error creating user: \${e.toString()}';
       });
     }
 
     setState(() {
       creating = false;
     });
+  }
+
+  Future<void> startSession() async {
+    try {
+      await FirebaseFirestore.instance.collection('session').doc('current').set({
+        'active': true,
+        'startedAt': Timestamp.now(),
+      });
+      Get.snackbar("Session Started", "Users can now view the shared screen.",
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar("Error", "Failed to start session: \${e.toString()}",
+          snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red);
+    }
   }
 
   Stream<QuerySnapshot> getUsersStream() {
@@ -132,6 +146,12 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           )
                               : const Text("Create"),
                         ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: startSession,
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          child: const Text("Start Session"),
+                        ),
                       ],
                     ),
                   ),
@@ -166,18 +186,18 @@ class _AdminHomePageState extends State<AdminHomePage> {
                                   snapshot.data!.docs.isEmpty) {
                                 return const Text("No users found.");
                               }
-        
+
                               return ListView.builder(
                                 itemCount: snapshot.data!.docs.length,
                                 itemBuilder: (context, index) {
                                   final doc = snapshot.data!.docs[index];
                                   final email = doc['email'];
                                   final role = doc['role'];
-        
+
                                   return ListTile(
                                     leading: const Icon(Icons.person),
                                     title: Text(email),
-                                    subtitle: Text('Role: $role'),
+                                    subtitle: Text('Role: \$role'),
                                   );
                                 },
                               );
