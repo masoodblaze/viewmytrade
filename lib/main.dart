@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'route/app_routes.dart';
-import 'screens/home_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:viewmytrade/widgets/authgate.dart';
 
-void main() {
+import 'screens/login_page.dart';
+import 'screens/home_page.dart';
+import 'screens/admin_home_page.dart';
+import 'route/app_routes.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // For web: removes the "#" in URLs
+//  usePathUrlStrategy();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
@@ -13,18 +27,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'View Our Trade',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      initialRoute: AppRoutes.home,
+      title: 'View our option trade',
+      initialRoute: '/',
       getPages: [
-        GetPage(
-          name: AppRoutes.home,
-          page: () => const HomePage(),
-        ),
-        // Add more pages here later
+        GetPage(name: '/', page: () => const AuthGate()), // Initial wrapper
+        GetPage(name: AppRoutes.login, page: () => const LoginPage()),
+        GetPage(name: AppRoutes.home, page: () => const HomePage()),
+        GetPage(name: AppRoutes.adminHome, page: () => const AdminHomePage()),
       ],
     );
   }
