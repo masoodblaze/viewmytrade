@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:viewmytrade/widgets/authgate.dart';
-
-import 'screens/login_page.dart';
-import 'screens/home_page.dart';
-import 'screens/admin_home_page.dart';
-import 'route/app_routes.dart';
+import 'package:viewmytrade/core/app_routes.dart';
+import 'package:viewmytrade/presentation/pages/admin_home_page.dart';
+import 'package:viewmytrade/presentation/pages/home_page.dart';
+import 'package:viewmytrade/presentation/pages/login_page.dart';
+import 'package:viewmytrade/presentation/widgets/authgate.dart';
 import 'firebase_options.dart';
 
 void main() async {

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../screens/admin_home_page.dart';
-import '../screens/home_page.dart';
-import '../screens/login_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:viewmytrade/presentation/pages/admin_home_page.dart';
+import 'package:viewmytrade/presentation/pages/home_page.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});

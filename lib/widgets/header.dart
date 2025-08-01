@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import '../route/app_routes.dart';
+import 'package:viewmytrade/core/app_routes.dart';
 
 class Header extends StatelessWidget {
   const Header({super.key});
