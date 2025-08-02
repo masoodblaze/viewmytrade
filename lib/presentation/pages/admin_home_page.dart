@@ -152,6 +152,12 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                           child: const Text("Start Session"),
                         ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () => Get.toNamed('/admin/subscriptions'),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          child: const Text("Manage Subscription"),
+                        ),
                       ],
                     ),
                   ),
