@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:viewmytrade/presentation/pages/admin_screen_share_page.dart';
+import 'package:viewmytrade/presentation/pages/user_watch_page.dart';
 import 'package:viewmytrade/widgets/page_wrapper.dart';
 
 class AdminHomePage extends StatefulWidget {
@@ -148,9 +150,25 @@ class _AdminHomePageState extends State<AdminHomePage> {
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton(
-                          onPressed: startSession,
+                          onPressed: (){
+                            startSession();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AdminScreenSharePage()),
+                            );
+                            },
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                           child: const Text("Start Session"),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => UserWatchPage()),
+                            );
+                          },
+                          child: Text("Join as Viewer"),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton(

@@ -8,6 +8,8 @@ class AppRoutes {
   static const String home = '/home';
   static const String login = '/login';
   static const String adminHome = '/admin';
+  static const String adminScreenShare = '/admin-screen-share';
+  static const String userWatch = '/user-watch';
   static const String subscriptionManagement = '/admin/subscriptions';
 
   static final routes = [
