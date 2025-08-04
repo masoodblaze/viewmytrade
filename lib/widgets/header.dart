@@ -36,6 +36,7 @@ class Header extends StatelessWidget {
                     child: Text("Logout", style: TextStyle(color: Colors.white)),
                   ),
                 ),
+              _navItem("Join as Viewer", AppRoutes.userWatch),
             ],
           ),
         ],

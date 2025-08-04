@@ -160,16 +160,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                           child: const Text("Start Session"),
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => UserWatchPage()),
-                            );
-                          },
-                          child: Text("Join as Viewer"),
-                        ),
+                        //const SizedBox(height: 12),
+                        // ElevatedButton(
+                        //   onPressed: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(builder: (_) => UserWatchPage()),
+                        //     );
+                        //   },
+                        //   child: Text("Join as Viewer"),
+                        // ),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => Get.toNamed('/admin/subscriptions'),

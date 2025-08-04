@@ -3,6 +3,7 @@ import '../presentation/pages/admin_home_page.dart';
 import 'package:get/get.dart';
 
 import '../presentation/pages/subscription_management_page.dart';
+import '../presentation/pages/user_watch_page.dart';
 
 class AppRoutes {
   static const String home = '/home';
@@ -18,5 +19,6 @@ class AppRoutes {
       name: subscriptionManagement,
       page: () => SubscriptionManagementPage(),
     ),
+    GetPage(name: userWatch, page: () => UserWatchPage()),
   ];
 }
