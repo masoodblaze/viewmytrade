@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
@@ -16,17 +18,18 @@ class SignalingService {
 
   bool _remoteDescriptionSet = false;
   final List<RTCIceCandidate> _candidateQueue = [];
+  StreamSubscription? _offerListener;
+  StreamSubscription? _answerListener;
+  StreamSubscription? _candidateListener;
 
-  /// Initializes a fresh RTCPeerConnection
   Future<RTCPeerConnection> initPeerConnection() async {
-    // Dispose existing connection if it's closed
     if (_peerConnection != null &&
-        _peerConnection!.signalingState == RTCSignalingState.RTCSignalingStateClosed) {
+        _peerConnection!.signalingState ==
+            RTCSignalingState.RTCSignalingStateClosed) {
       await _peerConnection!.close();
       _peerConnection = null;
     }
 
-    // Create new connection if null
     if (_peerConnection == null) {
       _peerConnection = await createPeerConnection(_config);
 
@@ -46,67 +49,6 @@ class SignalingService {
     }
 
     return _peerConnection!;
-  }
-
-  /// Admin creates offer
-  Future<void> createOffer(MediaStream stream) async {
-    final pc = await initPeerConnection();
-    _remoteDescriptionSet = false;
-
-    for (var track in stream.getTracks()) {
-      pc.addTrack(track, stream);
-    }
-
-    final offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    await _firestore.collection('calls').doc(callId).set({
-      'offer': {'sdp': offer.sdp, 'type': offer.type},
-      'active': true,
-      'timestamp': FieldValue.serverTimestamp()
-    });
-
-    listenForAnswer(); // Start listening after offer
-  }
-
-  /// Viewer answers the call
-  Future<void> answerCall(Function(MediaStream) onAddRemoteStream) async {
-    final pc = await initPeerConnection();
-    _remoteDescriptionSet = false;
-
-    pc.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
-        onAddRemoteStream(event.streams[0]);
-      }
-    };
-
-    // Listen for offer
-    _firestore.collection('calls').doc(callId).snapshots().listen((doc) async {
-      final data = doc.data();
-      final offer = data?['offer'];
-
-      if (offer != null && !_remoteDescriptionSet) {
-        await pc.setRemoteDescription(
-          RTCSessionDescription(offer['sdp'], offer['type']),
-        );
-        _remoteDescriptionSet = true;
-
-        // Flush queued ICE candidates
-        for (var candidate in _candidateQueue) {
-          await pc.addCandidate(candidate);
-        }
-        _candidateQueue.clear();
-
-        final answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        await _firestore.collection('calls').doc(callId).update({
-          'answer': {'sdp': answer.sdp, 'type': answer.type}
-        });
-      }
-    });
-
-    _listenToCandidates(); // Listen for ICE
   }
 
   /// Admin listens for answer
@@ -132,9 +74,98 @@ class SignalingService {
     _listenToCandidates();
   }
 
-  /// Listens for ICE candidates
+  Future<void> createOffer(MediaStream stream) async {
+    final pc = await initPeerConnection();
+    _remoteDescriptionSet = false;
+
+    for (var track in stream.getTracks()) {
+      pc.addTrack(track, stream);
+    }
+
+    final offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await _firestore.collection('calls').doc(callId).set({
+      'offer': {'sdp': offer.sdp, 'type': offer.type},
+      'active': true,
+      'timestamp': FieldValue.serverTimestamp()
+    });
+
+    _listenForAnswer(); // Admin listens for answer
+  }
+
+  Future<void> answerCall(Function(MediaStream) onAddRemoteStream) async {
+    final pc = await initPeerConnection();
+    _remoteDescriptionSet = false;
+
+    pc.onTrack = (event) {
+      if (event.streams.isNotEmpty) {
+        onAddRemoteStream(event.streams[0]);
+      }
+    };
+
+    _offerListener?.cancel();
+    _offerListener = _firestore
+        .collection('calls')
+        .doc(callId)
+        .snapshots()
+        .listen((doc) async {
+      final data = doc.data();
+      final offer = data?['offer'];
+
+      if (offer != null && !_remoteDescriptionSet) {
+        await pc.setRemoteDescription(
+          RTCSessionDescription(offer['sdp'], offer['type']),
+        );
+        _remoteDescriptionSet = true;
+
+        for (var candidate in _candidateQueue) {
+          await pc.addCandidate(candidate);
+        }
+        _candidateQueue.clear();
+
+        final answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        await _firestore.collection('calls').doc(callId).update({
+          'answer': {'sdp': answer.sdp, 'type': answer.type}
+        });
+      }
+    });
+
+    _listenToCandidates(); // Viewer listens to ICE
+  }
+
+  void _listenForAnswer() {
+    _answerListener?.cancel();
+    _answerListener = _firestore
+        .collection('calls')
+        .doc(callId)
+        .snapshots()
+        .listen((doc) async {
+      final data = doc.data();
+      if (data?['answer'] != null && !_remoteDescriptionSet) {
+        final answer = data?['answer'];
+        final pc = await initPeerConnection();
+
+        await pc.setRemoteDescription(
+          RTCSessionDescription(answer['sdp'], answer['type']),
+        );
+        _remoteDescriptionSet = true;
+
+        for (var candidate in _candidateQueue) {
+          await pc.addCandidate(candidate);
+        }
+        _candidateQueue.clear();
+      }
+    });
+
+    _listenToCandidates(); // Admin listens to ICE
+  }
+
   void _listenToCandidates() {
-    _firestore
+    _candidateListener?.cancel();
+    _candidateListener = _firestore
         .collection('calls')
         .doc(callId)
         .collection('candidates')
@@ -159,7 +190,6 @@ class SignalingService {
     });
   }
 
-  /// Observes screen sharing active state
   Stream<bool> screenShareStatusStream() {
     return _firestore
         .collection('calls')
@@ -168,16 +198,23 @@ class SignalingService {
         .map((snapshot) => snapshot.data()?['active'] == true);
   }
 
-  /// Ends call session
   Future<void> endCall() async {
-    await _firestore.collection('calls').doc(callId).delete();
+    try {
+      await _firestore.collection('calls').doc(callId).delete();
 
-    if (_peerConnection != null) {
-      await _peerConnection!.close();
-      _peerConnection = null;
+      _offerListener?.cancel();
+      _answerListener?.cancel();
+      _candidateListener?.cancel();
+
+      if (_peerConnection != null) {
+        await _peerConnection!.close();
+        _peerConnection = null;
+      }
+
+      _remoteDescriptionSet = false;
+      _candidateQueue.clear();
+    } catch (e) {
+      print("❌ Error in endCall: $e");
     }
-
-    _remoteDescriptionSet = false;
-    _candidateQueue.clear();
   }
 }
