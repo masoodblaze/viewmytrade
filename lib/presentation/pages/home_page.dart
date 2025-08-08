@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:viewmytrade/widgets/page_wrapper.dart';
+import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../controllers/homepage_controller.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.put(HomePageController());
     return Scaffold(
       backgroundColor: Colors.white,
       body: PageWrapper(
@@ -129,24 +134,12 @@ class HomePage extends StatelessWidget {
                           "We protect your access and data using end-to-end Firebase authentication.",
                           icon: Icons.lock_outline_rounded,
                         ),
-                        // _FeatureCard(
-                        //   title: "Boost Financial IQ",
-                        //   description:
-                        //   "Learn decision-making, risk handling, and strategy building by watching pros live.",
-                        //   icon: Icons.trending_up_rounded,
-                        // ),
                         _FeatureCard(
                           title: "Device Friendly",
                           description:
                           "Watch from mobile, tablet, or desktop. Designed for all screen sizes.",
                           icon: Icons.devices_rounded,
                         ),
-                        // _FeatureCard(
-                        //   title: "Collaborative Learning",
-                        //   description:
-                        //   "See chat, participate in polls, and follow real trades in real-time.",
-                        //   icon: Icons.groups_2_rounded,
-                        // ),
                         _FeatureCard(
                           title: "No Hidden Costs",
                           description:
@@ -188,8 +181,64 @@ class HomePage extends StatelessWidget {
                         elevation: 6,
                       ),
                       onPressed: () {
-                        // Navigate to register or login page
-                        // Example: Get.toNamed(AppRoutes.login);
+                        Get.dialog(
+                          Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                width: 400,
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.95),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "Subscribe",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0D1B2A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    TextField(
+                                      controller: controller.emailCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: "Enter your email",
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Obx(() => ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0D1B2A),
+                                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: controller.isLoading.value ? null : controller.subscribe,
+                                      child: controller.isLoading.value
+                                          ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                          : Text(
+                                        "Submit",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
                       },
                       child: const Text(
                         "Join Now",

@@ -11,6 +11,7 @@ import 'package:viewmytrade/presentation/widgets/authgate.dart';
 import 'controllers/admin_functions_controller.dart';
 import 'firebase_options.dart';
 import 'presentation/pages/admin_screen_share_page.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
+      ),
       title: 'View our option trade',
       initialRoute: '/',
       getPages: [
