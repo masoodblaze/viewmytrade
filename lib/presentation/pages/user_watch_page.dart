@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:viewmytrade/presentation/controllers/screen_share_controller.dart';
@@ -10,6 +9,8 @@ class UserWatchPage extends StatefulWidget {
 }
 
 class _UserWatchPageState extends State<UserWatchPage> {
+  // Note: On Web, ensure user interacted with the page to allow autoplay audio.
+  // Some browsers block autoplaying audio until a tap/click occurs.
   final _renderer = RTCVideoRenderer();
   final _controller = ScreenShareController(SignalingService("global-broadcast"));
 
@@ -34,7 +35,7 @@ class _UserWatchPageState extends State<UserWatchPage> {
             _renderer.srcObject = stream;
           });
         } catch (e) {
-          print('Error starting watch: \$e');
+          print('Error starting watch: $e');
         }
       } else if (!active) {
         _isWatching = false;

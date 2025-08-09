@@ -7,8 +7,12 @@ class ScreenShareController {
   ScreenShareController(this.signalingService);
 
   MediaStream? _currentStream;
+  MediaStreamTrack? _micAudioTrack;
 
-  /// Admin starts sharing screen
+  bool get isSharing => _currentStream != null;
+  bool get isMicEnabled => _micAudioTrack?.enabled ?? false;
+
+  /// Admin starts sharing screen (screen video + mic audio)
   Future<void> startScreenShare() async {
     try {
       if (_currentStream != null) {
@@ -16,28 +20,37 @@ class ScreenShareController {
         return;
       }
 
-      final pc = await signalingService.initPeerConnection();
+      // Prepare the RTCPeerConnection
+      await signalingService.initPeerConnection();
 
-      // 1. Get screen (display) stream
+      // 1) Capture screen (video)
       final displayStream = await navigator.mediaDevices.getDisplayMedia({
         'video': true,
-        'audio': false, // Don't capture system audio
+        'audio': false, // don't capture system/tab audio
       });
 
-      // 2. Get microphone (voice) stream
+      // 2) Capture microphone (voice)
       final micStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
+        'video': false,
       });
 
-      // 3. Add mic audio tracks to screen stream
-      for (var track in micStream.getAudioTracks()) {
-        displayStream.addTrack(track);
+      // Keep a handle to the mic track for mute/unmute
+      _micAudioTrack = micStream.getAudioTracks().firstOrNull;
+      if (_micAudioTrack != null) {
+        _micAudioTrack!.enabled = true; // default ON
+        // 3) Add mic audio track(s) to the screen stream
+        displayStream.addTrack(_micAudioTrack!);
       }
 
       _currentStream = displayStream;
 
+      // Attach browser stop listeners so we clean up if user stops from UI
+      _attachStopListeners(displayStream);
+
       print("✅ Screen + mic capture started. Stream ID: ${displayStream.id}");
 
+      // 4) Create and publish offer, then listen for answer
       await signalingService.createOffer(displayStream);
       signalingService.listenForAnswer();
     } catch (e) {
@@ -45,6 +58,24 @@ class ScreenShareController {
     }
   }
 
+  /// Toggle mic mute/unmute
+  Future<void> toggleMic() async {
+    if (_micAudioTrack == null) return;
+    _micAudioTrack!.enabled = !_micAudioTrack!.enabled;
+    print(_micAudioTrack!.enabled ? "🎙️ Mic unmuted" : "🔇 Mic muted");
+  }
+
+  Future<void> muteMic() async {
+    if (_micAudioTrack == null) return;
+    _micAudioTrack!.enabled = false;
+    print("🔇 Mic muted");
+  }
+
+  Future<void> unmuteMic() async {
+    if (_micAudioTrack == null) return;
+    _micAudioTrack!.enabled = true;
+    print("🎙️ Mic unmuted");
+  }
 
   /// Attach browser stop listeners to all tracks
   void _attachStopListeners(MediaStream stream) {
@@ -55,7 +86,6 @@ class ScreenShareController {
       };
     }
   }
-
 
   /// Viewer joins and watches the screen
   Future<void> watchScreen(Function(MediaStream) onAddRemoteStream) async {
@@ -76,12 +106,20 @@ class ScreenShareController {
       await signalingService.endCall();
 
       if (_currentStream != null) {
-        _currentStream?.getTracks().forEach((track) => track.stop());
+        _currentStream?.getTracks().forEach((track) {
+          try { track.stop(); } catch (_) {}
+        });
         print("🛑 Screen share manually stopped.");
         _currentStream = null;
       }
+
+      _micAudioTrack = null;
     } catch (e) {
       print("❌ Failed to stop screen share: $e");
     }
   }
+}
+
+extension _FirstOrNull<T> on List<T> {
+  T? get firstOrNull => isEmpty ? null : this.first;
 }
