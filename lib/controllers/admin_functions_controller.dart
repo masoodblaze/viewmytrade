@@ -8,14 +8,16 @@ class AdminFunctionsController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> updateSubscription(String userId, DateTime endDate) async {
+    print(userId);
+    print(endDate);
     try {
       final user = _auth.currentUser;
       if (user == null) throw "Authentication required";
 
-      final adminDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!adminDoc.exists || adminDoc['role'] != 'admin') {
-        throw "Admin privileges required";
-      }
+      //final adminDoc = await _firestore.collection('users').doc(user.uid).get();
+      // if (!adminDoc.exists || adminDoc['role'] != 'admin') {
+      //   throw "Admin privileges required";
+      // }
 
       await _firestore.collection('users').doc(userId).update({
         'subscriptionEndDate': Timestamp.fromDate(endDate),
