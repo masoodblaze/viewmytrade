@@ -7,6 +7,7 @@ import '../presentation/pages/user_watch_page.dart';
 
 class AppRoutes {
   static const String home = '/home';
+  static const String aboutus = '/aboutus';
   static const String login = '/login';
   static const String adminHome = '/admin';
   static const String adminScreenShare = '/admin-screen-share';

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // For date formatting
 import 'package:viewmytrade/presentation/pages/admin_screen_share_page.dart';
-import 'package:viewmytrade/presentation/pages/user_watch_page.dart';
 import 'package:viewmytrade/widgets/page_wrapper.dart';
 
 class AdminHomePage extends StatefulWidget {
@@ -44,7 +44,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
       setState(() {
-        errorMsg = 'Error creating user: \${e.toString()}';
+        errorMsg = 'Error creating user: ${e.toString()}';
       });
     }
 
@@ -61,14 +61,22 @@ class _AdminHomePageState extends State<AdminHomePage> {
       });
       Get.snackbar("Session Started", "Users can now view the shared screen.",
           snackPosition: SnackPosition.BOTTOM);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AdminScreenSharePage()),
+      );
     } catch (e) {
-      Get.snackbar("Error", "Failed to start session: \${e.toString()}",
+      Get.snackbar("Error", "Failed to start session: ${e.toString()}",
           snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red);
     }
   }
 
   Stream<QuerySnapshot> getUsersStream() {
     return FirebaseFirestore.instance.collection('users').snapshots();
+  }
+
+  Stream<QuerySnapshot> getSubscriptionsStream() {
+    return FirebaseFirestore.instance.collection('subscriptions').snapshots();
   }
 
   @override
@@ -95,146 +103,166 @@ class _AdminHomePageState extends State<AdminHomePage> {
               // Create User Form
               Expanded(
                 flex: 2,
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text("Create New User",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: emailCtrl,
-                          decoration: const InputDecoration(labelText: "Email"),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: passCtrl,
-                          obscureText: true,
-                          decoration:
-                          const InputDecoration(labelText: "Password"),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButton<String>(
-                          value: selectedRole,
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'user', child: Text('User')),
-                            DropdownMenuItem(
-                                value: 'admin', child: Text('Admin')),
-                          ],
-                          onChanged: (val) {
-                            setState(() {
-                              selectedRole = val!;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        if (errorMsg.isNotEmpty)
-                          Text(errorMsg,
-                              style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: creating ? null : createUser,
-                          child: creating
-                              ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : const Text("Create"),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: (){
-                            startSession();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => AdminScreenSharePage()),
-                            );
-                            },
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          child: const Text("Start Session"),
-                        ),
-                        //const SizedBox(height: 12),
-                        // ElevatedButton(
-                        //   onPressed: () {
-                        //     Navigator.push(
-                        //       context,
-                        //       MaterialPageRoute(builder: (_) => UserWatchPage()),
-                        //     );
-                        //   },
-                        //   child: Text("Join as Viewer"),
-                        // ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: () => Get.toNamed('/admin/subscriptions'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          child: const Text("Manage Subscription"),
-                        ),
-                      ],
-                    ),
+                child: _buildCard(
+                  title: "Create New User",
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(labelText: "Email"),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: passCtrl,
+                        obscureText: true,
+                        decoration:
+                        const InputDecoration(labelText: "Password"),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        value: selectedRole,
+                        items: const [
+                          DropdownMenuItem(value: 'user', child: Text('User')),
+                          DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                        ],
+                        onChanged: (val) {
+                          setState(() {
+                            selectedRole = val!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      if (errorMsg.isNotEmpty)
+                        Text(errorMsg,
+                            style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: creating ? null : createUser,
+                        child: creating
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child:
+                          CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : const Text("Create"),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: startSession,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green),
+                        child: const Text("Start Session"),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () =>
+                            Get.toNamed('/admin/subscriptions'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green),
+                        child: const Text("Manage Subscription"),
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(width: 16),
-              // User List
+
+              // Registered Users
               Expanded(
                 flex: 3,
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Text("Registered Users",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: StreamBuilder<QuerySnapshot>(
-                            stream: getUsersStream(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-                              if (!snapshot.hasData ||
-                                  snapshot.data!.docs.isEmpty) {
-                                return const Text("No users found.");
-                              }
+                child: _buildCard(
+                  title: "Registered Users",
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: getUsersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData ||
+                          snapshot.data!.docs.isEmpty) {
+                        return const Text("No users found.");
+                      }
 
-                              return ListView.builder(
-                                itemCount: snapshot.data!.docs.length,
-                                itemBuilder: (context, index) {
-                                  final doc = snapshot.data!.docs[index];
-                                  final email = doc['email'];
-                                  final role = doc['role'];
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: snapshot.data!.docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = snapshot.data!.docs[index];
+                          return ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text(doc['email']),
+                            subtitle: Text('Role: ${doc['role']}'),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
 
-                                  return ListTile(
-                                    leading: const Icon(Icons.person),
-                                    title: Text(email),
-                                    subtitle: Text('Role: \$role'),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        )
-                      ],
-                    ),
+              // Subscribed Users
+              Expanded(
+                flex: 3,
+                child: _buildCard(
+                  title: "Subscribed Users",
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: getSubscriptionsStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData ||
+                          snapshot.data!.docs.isEmpty) {
+                        return const Text("No subscriptions found.");
+                      }
+
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: snapshot.data!.docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = snapshot.data!.docs[index];
+                          final createdAt =
+                          (doc['createdAt'] as Timestamp?)?.toDate();
+                          final formattedDate = createdAt != null
+                              ? DateFormat.yMMMd().add_jm().format(createdAt)
+                              : "Unknown date";
+
+                          return ListTile(
+                            leading: const Icon(Icons.email),
+                            title: Text(doc['email'] ?? 'No Email'),
+                            subtitle: Text("Subscribed: $formattedDate"),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard({required String title, required Widget child}) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(title,
+                style:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Expanded(child: child),
+          ],
         ),
       ),
     );

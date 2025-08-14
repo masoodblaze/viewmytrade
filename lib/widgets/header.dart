@@ -82,7 +82,7 @@ class _HeaderState extends State<Header> {
   List<Widget> _buildNavItems(User? user) {
     return [
       _navItem("Home", AppRoutes.home),
-      _navItem("About", "/about"),
+      _navItem("About", AppRoutes.aboutus),
       if (user != null) _navItem("Join as Viewer", AppRoutes.userWatch),
       if (user == null)
         _navItem("Login", AppRoutes.login)
