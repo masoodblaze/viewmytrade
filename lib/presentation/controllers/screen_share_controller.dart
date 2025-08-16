@@ -12,6 +12,8 @@ class ScreenShareController {
   bool get isSharing => _currentStream != null;
   bool get isMicEnabled => _micAudioTrack?.enabled ?? false;
 
+  Future<bool> isShareActiveOnce() => signalingService.isCallActiveOnce();
+
   /// Admin starts sharing screen (screen video + mic audio)
   Future<void> startScreenShare() async {
     try {
@@ -50,9 +52,11 @@ class ScreenShareController {
 
       print("✅ Screen + mic capture started. Stream ID: ${displayStream.id}");
 
-      // 4) Create and publish offer, then listen for answer
+      // 4) Create and publish offer (starts listenForAnswer() internally)
       await signalingService.createOffer(displayStream);
-      signalingService.listenForAnswer();
+
+      // Allow viewers to request a fresh offer on refresh/back
+      signalingService.listenForReoffer();
     } catch (e) {
       print("❌ Failed to start screen share with mic: $e");
     }
@@ -90,7 +94,10 @@ class ScreenShareController {
   /// Viewer joins and watches the screen
   Future<void> watchScreen(Function(MediaStream) onAddRemoteStream) async {
     try {
-      await signalingService.initPeerConnection();
+      // Ask admin to publish a fresh offer (handles refresh/re-entry)
+      await signalingService.requestReoffer();
+
+      // Now attach to the latest offer
       await signalingService.answerCall(onAddRemoteStream);
     } catch (e) {
       print("❌ Failed to watch screen: $e");
@@ -106,9 +113,9 @@ class ScreenShareController {
       await signalingService.endCall();
 
       if (_currentStream != null) {
-        _currentStream?.getTracks().forEach((track) {
+        for (final track in _currentStream!.getTracks()) {
           try { track.stop(); } catch (_) {}
-        });
+        }
         print("🛑 Screen share manually stopped.");
         _currentStream = null;
       }
