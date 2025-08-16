@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:viewmytrade/core/app_routes.dart';
+import 'package:viewmytrade/presentation/pages/aboutus_page.dart';
 import 'package:viewmytrade/presentation/pages/admin_home_page.dart';
 import 'package:viewmytrade/presentation/pages/home_page.dart';
 import 'package:viewmytrade/presentation/pages/login_page.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/', page: () => const AuthGate()), // Initial wrapper
         GetPage(name: AppRoutes.login, page: () => const LoginPage()),
         GetPage(name: AppRoutes.home, page: () => const HomePage()),
+        GetPage(name: AppRoutes.aboutus, page: () => const AboutUsPage()),
         GetPage(name: AppRoutes.adminHome, page: () => const AdminHomePage()),
         GetPage(name: AppRoutes.adminScreenShare, page: () => AdminScreenSharePage()),
         GetPage(name: AppRoutes.userWatch, page: () => UserWatchPage()),

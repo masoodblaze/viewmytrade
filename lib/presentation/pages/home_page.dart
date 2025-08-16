@@ -173,7 +173,7 @@ class HomePage extends StatelessWidget {
                     const SizedBox(height: 30),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: const Color(0xFF0D1B2A),
                         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -285,7 +285,7 @@ class _FeatureCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 50, color: Colors.deepPurple),
+          Icon(icon, size: 50, color: const Color(0xFF0D1B2A)),
           const SizedBox(height: 18),
           Text(
             title,
