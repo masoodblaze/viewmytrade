@@ -25,48 +25,10 @@ class SignalingService {
   StreamSubscription? _answerListener;
   StreamSubscription? _candidateListener;
 
-  // Re-offer plumbing
-  MediaStream? _localStream; // admin's active stream (screen + mic)
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _reofferSub;
+  // Keep admin's local stream so we can reattach tracks if needed
+  MediaStream? _localStream;
 
-  // ------------ PeerConnection helpers ------------
-
-  Future<RTCPeerConnection> initPeerConnection() async {
-    // If closed, reset
-    if (_peerConnection != null &&
-        _peerConnection!.signalingState ==
-            RTCSignalingState.RTCSignalingStateClosed) {
-      try { await _peerConnection!.close(); } catch (_) {}
-      _peerConnection = null;
-    }
-
-    if (_peerConnection == null) {
-      _peerConnection = await createPeerConnection(_config);
-
-      _peerConnection!.onIceCandidate = (candidate) async {
-        if (candidate != null) {
-          await _firestore
-              .collection('calls')
-              .doc(callId)
-              .collection('candidates')
-              .add({
-            'candidate': candidate.candidate,
-            'sdpMid': candidate.sdpMid,
-            'sdpMLineIndex': candidate.sdpMLineIndex,
-            'ts': FieldValue.serverTimestamp(),
-          });
-        }
-      };
-
-      // Optional: helpful logs
-      _peerConnection!.onIceConnectionState =
-          (s) => print('ICE state [$callId]: $s');
-      _peerConnection!.onConnectionState =
-          (s) => print('PC state [$callId]: $s');
-    }
-
-    return _peerConnection!;
-  }
+  // ---------- PeerConnection helpers ----------
 
   Future<RTCPeerConnection> _newPeerConnection() async {
     if (_peerConnection != null) {
@@ -90,6 +52,7 @@ class SignalingService {
       }
     };
 
+    // Optional logs (helpful while testing)
     _peerConnection!.onIceConnectionState =
         (s) => print('ICE state [$callId]: $s');
     _peerConnection!.onConnectionState =
@@ -98,18 +61,32 @@ class SignalingService {
     return _peerConnection!;
   }
 
-  // ------------ Admin flow ------------
+  Future<RTCPeerConnection> _ensurePeerConnection() async {
+    if (_peerConnection == null) return _newPeerConnection();
+    // If it's closed, recreate
+    if (_peerConnection!.signalingState ==
+        RTCSignalingState.RTCSignalingStateClosed) {
+      return _newPeerConnection();
+    }
+    return _peerConnection!;
+  }
+
+  // ---------- Admin flow ----------
 
   Future<void> createOffer(MediaStream stream) async {
-    _localStream = stream; // keep for re-offers
+    _localStream = stream;
     _remoteDescriptionSet = false;
 
+    // Fresh PC for a clean negotiation
     final pc = await _newPeerConnection();
 
-    // attach tracks
-    for (var track in stream.getTracks()) {
-      pc.addTrack(track, stream);
+    // Attach tracks
+    for (final t in stream.getTracks()) {
+      pc.addTrack(t, stream);
     }
+
+    // Clear any stale ICE candidates before writing a new offer
+    await _clearCandidates();
 
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -118,56 +95,52 @@ class SignalingService {
       'offer': {'sdp': offer.sdp, 'type': offer.type},
       'active': true,
       'offerTimestamp': FieldValue.serverTimestamp(),
-      // Clear stale answer to avoid wrong-state apply
+      // Clear stale answer & pending request (if any)
       'answer': FieldValue.delete(),
-      // Clear any pending request
-      'reofferRequestAt': null,
     }, SetOptions(merge: true));
 
-    // Start answer listener with state guard
-    listenForAnswer();
-
-    // Start ICE listening for both sides (safe to call multiple times; we cancel previous)
-    _listenToCandidates();
+    _listenForAnswer();   // guarded answer applier
+    _listenToCandidates(); // start/refresh ICE listener
   }
 
-  /// Admin listens for viewer's answer; guarded to avoid wrong-state
-  void listenForAnswer() {
+  /// Admin listens for viewer's answer; guarded against wrong SDP state.
+  void _listenForAnswer() {
     _answerListener?.cancel();
-    _answerListener =
-        _firestore.collection('calls').doc(callId).snapshots().listen(
-              (doc) async {
-            final data = doc.data();
-            if (data?['answer'] == null || _remoteDescriptionSet) return;
+    _answerListener = _firestore
+        .collection('calls')
+        .doc(callId)
+        .snapshots()
+        .listen((doc) async {
+      final data = doc.data();
+      final ans = data?['answer'];
+      if (ans == null || _remoteDescriptionSet) return;
 
-            final pc = await initPeerConnection();
+      final pc = await _ensurePeerConnection();
 
-            // Only accept answer when we have a local offer pending
-            if (pc.signalingState !=
-                RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
-              // stale/duplicate answer — ignore
-              return;
-            }
+      // Only accept answer when we have a local offer pending
+      if (pc.signalingState !=
+          RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        // Stale/duplicate answer; ignore
+        return;
+      }
 
-            final answer = data!['answer'];
-            await pc.setRemoteDescription(
-              RTCSessionDescription(answer['sdp'], answer['type']),
-            );
-            _remoteDescriptionSet = true;
+      await pc.setRemoteDescription(
+        RTCSessionDescription(ans['sdp'], ans['type']),
+      );
+      _remoteDescriptionSet = true;
 
-            // flush queued ICE
-            for (var c in _candidateQueue) {
-              await pc.addCandidate(c);
-            }
-            _candidateQueue.clear();
-          },
-        );
+      // Flush queued candidates
+      for (final c in _candidateQueue) {
+        await pc.addCandidate(c);
+      }
+      _candidateQueue.clear();
+    });
   }
 
-  // ------------ Viewer flow ------------
+  // ---------- Viewer flow ----------
 
+  /// Viewer answers the **current** offer (one-shot fetch). Uses a fresh PC to avoid state errors.
   Future<void> answerCall(Function(MediaStream) onAddRemoteStream) async {
-    // Fresh PC for each (re)join to avoid invalid states
     final pc = await _newPeerConnection();
     _remoteDescriptionSet = false;
 
@@ -177,39 +150,38 @@ class SignalingService {
       }
     };
 
-    _offerListener?.cancel();
-    _offerListener = _firestore
-        .collection('calls')
-        .doc(callId)
-        .snapshots()
-        .listen((doc) async {
-      final data = doc.data();
-      final offer = data?['offer'];
-      if (offer == null || _remoteDescriptionSet) return;
+    // One-shot fetch of the current offer
+    final callSnap =
+    await _firestore.collection('calls').doc(callId).get();
+    final data = callSnap.data();
+    final offer = data?['offer'];
+    if (offer == null) {
+      print("No active offer to answer.");
+      return;
+    }
 
-      await pc.setRemoteDescription(
-        RTCSessionDescription(offer['sdp'], offer['type']),
-      );
-      _remoteDescriptionSet = true;
+    await pc.setRemoteDescription(
+      RTCSessionDescription(offer['sdp'], offer['type']),
+    );
+    _remoteDescriptionSet = true;
 
-      // Apply queued ICE after remote desc
-      for (var c in _candidateQueue) {
-        await pc.addCandidate(c);
-      }
-      _candidateQueue.clear();
+    // Apply queued ICE after remote desc
+    for (final c in _candidateQueue) {
+      await pc.addCandidate(c);
+    }
+    _candidateQueue.clear();
 
-      final answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    final answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
 
-      await _firestore.collection('calls').doc(callId).set({
-        'answer': {'sdp': answer.sdp, 'type': answer.type}
-      }, SetOptions(merge: true));
-    });
+    await _firestore.collection('calls').doc(callId).set({
+      'answer': {'sdp': answer.sdp, 'type': answer.type}
+    }, SetOptions(merge: true));
 
-    _listenToCandidates(); // Viewer listens to ICE
+    _listenToCandidates(); // start/refresh ICE listener (viewer)
   }
 
-  // ------------ ICE candidates for both roles ------------
+  // ---------- ICE candidates ----------
 
   void _listenToCandidates() {
     _candidateListener?.cancel();
@@ -217,67 +189,42 @@ class SignalingService {
         .collection('calls')
         .doc(callId)
         .collection('candidates')
+        .orderBy('ts')
         .snapshots()
         .listen((snapshot) {
-      for (var change in snapshot.docChanges) {
+      for (final change in snapshot.docChanges) {
         final data = change.doc.data();
         if (data == null) continue;
 
-        final candidate = RTCIceCandidate(
+        final cand = RTCIceCandidate(
           data['candidate'],
           data['sdpMid'],
           data['sdpMLineIndex'],
         );
 
         if (_remoteDescriptionSet) {
-          _peerConnection?.addCandidate(candidate);
+          _peerConnection?.addCandidate(cand);
         } else {
-          _candidateQueue.add(candidate);
+          _candidateQueue.add(cand);
         }
       }
     });
   }
 
-  // ------------ Re-offer plumbing ------------
-
-  /// Viewer calls this before answering to ensure admin republishes a fresh offer
-  Future<void> requestReoffer() async {
-    await _firestore.collection('calls').doc(callId).set({
-      'reofferRequestAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+  Future<void> _clearCandidates() async {
+    final col = _firestore
+        .collection('calls')
+        .doc(callId)
+        .collection('candidates');
+    final snap = await col.get();
+    final batch = _firestore.batch();
+    for (final d in snap.docs) {
+      batch.delete(d.reference);
+    }
+    await batch.commit();
   }
 
-  /// Admin calls this after starting sharing; auto re-offers when a viewer refreshes
-  void listenForReoffer() {
-    _reofferSub?.cancel();
-    _reofferSub =
-        _firestore.collection('calls').doc(callId).snapshots().listen(
-              (snap) async {
-            final data = snap.data();
-            if (data == null) return;
-
-            final active = (data['active'] ?? false) == true;
-            if (!active) return;
-
-            final req = data['reofferRequestAt'];
-            final last = data['offerTimestamp'];
-
-            if (req == null) return;
-            if (_localStream == null) return;
-
-            // If request is newer than last offer, regenerate offer with same local stream
-            if (last == null ||
-                (req is Timestamp &&
-                    last is Timestamp &&
-                    req.compareTo(last) > 0)) {
-              print("♻️ Reoffer requested — creating a fresh offer.");
-              await createOffer(_localStream!);
-            }
-          },
-        );
-  }
-
-  // ------------ Status / cleanup ------------
+  // ---------- Status & cleanup ----------
 
   Stream<bool> screenShareStatusStream() {
     return _firestore
@@ -287,17 +234,29 @@ class SignalingService {
         .map((s) => s.data()?['active'] == true);
   }
 
+  Future<bool> isCallActiveOnce() async {
+    try {
+      final doc = await _firestore.collection('calls').doc(callId).get();
+      return (doc.data()?['active'] ?? false) == true;
+    } catch (e) {
+      print("Error checking active status: $e");
+      return false;
+    }
+  }
+
   Future<void> endCall() async {
     try {
-      await _firestore
-          .collection('calls')
-          .doc(callId)
-          .set({'active': false}, SetOptions(merge: true));
+      await _firestore.collection('calls').doc(callId).set({
+        'active': false,
+        'offer': FieldValue.delete(),
+        'answer': FieldValue.delete(),
+      }, SetOptions(merge: true));
+
+      await _clearCandidates();
 
       _offerListener?.cancel();
       _answerListener?.cancel();
       _candidateListener?.cancel();
-      _reofferSub?.cancel();
 
       if (_peerConnection != null) {
         try { await _peerConnection!.close(); } catch (_) {}
@@ -309,18 +268,6 @@ class SignalingService {
       _localStream = null;
     } catch (e) {
       print("❌ Error in endCall: $e");
-    }
-  }
-
-  /// One-shot active check for viewer
-  Future<bool> isCallActiveOnce() async {
-    try {
-      final doc = await _firestore.collection('calls').doc(callId).get();
-      final data = doc.data();
-      return (data?['active'] ?? false) == true;
-    } catch (e) {
-      print("Error checking active status: $e");
-      return false;
     }
   }
 }

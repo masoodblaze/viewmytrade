@@ -23,7 +23,9 @@ class ScreenShareController {
       }
 
       // Prepare the RTCPeerConnection
-      await signalingService.initPeerConnection();
+      // (createOffer will internally create a fresh RTCPeerConnection)
+      // We still call ensure once to initialize platform, if needed:
+      // await signalingService.initPeerConnection(); // optional now
 
       // 1) Capture screen (video)
       final displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -52,13 +54,21 @@ class ScreenShareController {
 
       print("✅ Screen + mic capture started. Stream ID: ${displayStream.id}");
 
-      // 4) Create and publish offer (starts listenForAnswer() internally)
+      // 4) Create and publish offer (starts guarded listenForAnswer internally)
       await signalingService.createOffer(displayStream);
-
-      // Allow viewers to request a fresh offer on refresh/back
-      signalingService.listenForReoffer();
     } catch (e) {
       print("❌ Failed to start screen share with mic: $e");
+      rethrow;
+    }
+  }
+
+  /// Viewer joins and watches the screen (answer current offer)
+  Future<void> watchScreen(Function(MediaStream) onAddRemoteStream) async {
+    try {
+      await signalingService.answerCall(onAddRemoteStream);
+    } catch (e) {
+      print("❌ Failed to watch screen: $e");
+      rethrow;
     }
   }
 
@@ -88,19 +98,6 @@ class ScreenShareController {
         print("🛑 Browser ended screen share track.");
         stopScreenShare(); // Automatically stop from Flutter side
       };
-    }
-  }
-
-  /// Viewer joins and watches the screen
-  Future<void> watchScreen(Function(MediaStream) onAddRemoteStream) async {
-    try {
-      // Ask admin to publish a fresh offer (handles refresh/re-entry)
-      await signalingService.requestReoffer();
-
-      // Now attach to the latest offer
-      await signalingService.answerCall(onAddRemoteStream);
-    } catch (e) {
-      print("❌ Failed to watch screen: $e");
     }
   }
 
