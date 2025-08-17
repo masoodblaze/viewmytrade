@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // For date formatting
+import 'package:intl/intl.dart';
 import 'package:viewmytrade/presentation/pages/admin_screen_share_page.dart';
 import 'package:viewmytrade/widgets/page_wrapper.dart';
 
@@ -95,154 +95,174 @@ class _AdminHomePageState extends State<AdminHomePage> {
         ],
       ),
       body: PageWrapper(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Create User Form
-              Expanded(
-                flex: 2,
-                child: _buildCard(
-                  title: "Create New User",
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: emailCtrl,
-                        decoration: const InputDecoration(labelText: "Email"),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: passCtrl,
-                        obscureText: true,
-                        decoration:
-                        const InputDecoration(labelText: "Password"),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButton<String>(
-                        value: selectedRole,
-                        items: const [
-                          DropdownMenuItem(value: 'user', child: Text('User')),
-                          DropdownMenuItem(value: 'admin', child: Text('Admin')),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive layout: if width < 900, stack vertically
+              bool isWide = constraints.maxWidth > 900;
+              return Flex(
+                direction: isWide ? Axis.horizontal : Axis.vertical,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Create User Form
+                  Expanded(
+                    flex: isWide ? 2 : 0,
+                    child: _buildCard(
+                      title: "Create New User",
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: emailCtrl,
+                            decoration:
+                            const InputDecoration(labelText: "Email"),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: passCtrl,
+                            obscureText: true,
+                            decoration:
+                            const InputDecoration(labelText: "Password"),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButton<String>(
+                            value: selectedRole,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'user', child: Text('User')),
+                              DropdownMenuItem(
+                                  value: 'admin', child: Text('Admin')),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                selectedRole = val!;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          if (errorMsg.isNotEmpty)
+                            Text(errorMsg,
+                                style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: creating ? null : createUser,
+                            child: creating
+                                ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
+                                : const Text("Create"),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: startSession,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            child: const Text("Start Session"),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () =>
+                                Get.toNamed('/admin/subscriptions'),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            child: const Text("Manage Subscription"),
+                          ),
                         ],
-                        onChanged: (val) {
-                          setState(() {
-                            selectedRole = val!;
-                          });
-                        },
                       ),
-                      const SizedBox(height: 12),
-                      if (errorMsg.isNotEmpty)
-                        Text(errorMsg,
-                            style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: creating ? null : createUser,
-                        child: creating
-                            ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child:
-                          CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : const Text("Create"),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: startSession,
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green),
-                        child: const Text("Start Session"),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () =>
-                            Get.toNamed('/admin/subscriptions'),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green),
-                        child: const Text("Manage Subscription"),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
+                  if (isWide) const SizedBox(width: 16) else const SizedBox(height: 16),
 
-              // Registered Users
-              Expanded(
-                flex: 3,
-                child: _buildCard(
-                  title: "Registered Users",
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: getUsersStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData ||
-                          snapshot.data!.docs.isEmpty) {
-                        return const Text("No users found.");
-                      }
+                  // Registered Users
+                  Expanded(
+                    flex: 3,
+                    child: _buildCard(
+                      title: "Registered Users",
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: getUsersStream(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (!snapshot.hasData ||
+                              snapshot.data!.docs.isEmpty) {
+                            return const Text("No users found.");
+                          }
 
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: snapshot.data!.docs.length,
-                        itemBuilder: (context, index) {
-                          final doc = snapshot.data!.docs[index];
-                          return ListTile(
-                            leading: const Icon(Icons.person),
-                            title: Text(doc['email']),
-                            subtitle: Text('Role: ${doc['role']}'),
+                          return Scrollbar(
+                            thumbVisibility: true,
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: snapshot.data!.docs.length,
+                              itemBuilder: (context, index) {
+                                final doc = snapshot.data!.docs[index];
+                                return ListTile(
+                                  leading: const Icon(Icons.person),
+                                  title: Text(doc['email']),
+                                  subtitle: Text('Role: ${doc['role']}'),
+                                );
+                              },
+                            ),
                           );
                         },
-                      );
-                    },
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
+                  if (isWide) const SizedBox(width: 16) else const SizedBox(height: 16),
 
-              // Subscribed Users
-              Expanded(
-                flex: 3,
-                child: _buildCard(
-                  title: "Subscribed Users",
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: getSubscriptionsStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData ||
-                          snapshot.data!.docs.isEmpty) {
-                        return const Text("No subscriptions found.");
-                      }
+                  // Subscribed Users
+                  Expanded(
+                    flex: 3,
+                    child: _buildCard(
+                      title: "Subscribed Users",
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: getSubscriptionsStream(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (!snapshot.hasData ||
+                              snapshot.data!.docs.isEmpty) {
+                            return const Text("No subscriptions found.");
+                          }
 
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: snapshot.data!.docs.length,
-                        itemBuilder: (context, index) {
-                          final doc = snapshot.data!.docs[index];
-                          final createdAt =
-                          (doc['createdAt'] as Timestamp?)?.toDate();
-                          final formattedDate = createdAt != null
-                              ? DateFormat.yMMMd().add_jm().format(createdAt)
-                              : "Unknown date";
+                          return Scrollbar(
+                            thumbVisibility: true,
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: snapshot.data!.docs.length,
+                              itemBuilder: (context, index) {
+                                final doc = snapshot.data!.docs[index];
+                                final createdAt =
+                                (doc['createdAt'] as Timestamp?)?.toDate();
+                                final formattedDate = createdAt != null
+                                    ? DateFormat.yMMMd().add_jm().format(createdAt)
+                                    : "Unknown date";
 
-                          return ListTile(
-                            leading: const Icon(Icons.email),
-                            title: Text(doc['email'] ?? 'No Email'),
-                            subtitle: Text("Subscribed: $formattedDate"),
+                                return ListTile(
+                                  leading: const Icon(Icons.email),
+                                  title: Text(doc['email'] ?? 'No Email'),
+                                  subtitle: Text("Subscribed: $formattedDate"),
+                                );
+                              },
+                            ),
                           );
                         },
-                      );
-                    },
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -258,10 +278,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
         child: Column(
           children: [
             Text(title,
-                style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Expanded(child: child),
+            SizedBox(
+              height: 300, // fixed scrollable height
+              child: child,
+            ),
           ],
         ),
       ),

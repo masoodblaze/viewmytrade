@@ -3,6 +3,7 @@ import '../presentation/pages/admin_home_page.dart';
 import 'package:get/get.dart';
 
 import '../presentation/pages/subscription_management_page.dart';
+import '../presentation/pages/terms_page.dart';
 import '../presentation/pages/user_watch_page.dart';
 
 class AppRoutes {
@@ -13,6 +14,8 @@ class AppRoutes {
   static const String adminScreenShare = '/admin-screen-share';
   static const String userWatch = '/user-watch';
   static const String subscriptionManagement = '/admin/subscriptions';
+  static const String termsAndConditions = '/terms';
+
 
   static final routes = [
     GetPage(name: adminHome, page: () => const AdminHomePage()),
@@ -21,5 +24,6 @@ class AppRoutes {
       page: () => SubscriptionManagementPage(),
     ),
     GetPage(name: userWatch, page: () => UserWatchPage()),
+    GetPage(name: termsAndConditions, page: () => const TermsAndConditionsPage()),
   ];
 }

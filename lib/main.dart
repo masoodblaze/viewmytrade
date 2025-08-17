@@ -7,6 +7,7 @@ import 'package:viewmytrade/presentation/pages/admin_home_page.dart';
 import 'package:viewmytrade/presentation/pages/home_page.dart';
 import 'package:viewmytrade/presentation/pages/login_page.dart';
 import 'package:viewmytrade/presentation/pages/subscription_management_page.dart';
+import 'package:viewmytrade/presentation/pages/terms_page.dart';
 import 'package:viewmytrade/presentation/pages/user_watch_page.dart';
 import 'package:viewmytrade/presentation/widgets/authgate.dart';
 import 'controllers/admin_functions_controller.dart';
@@ -46,6 +47,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: AppRoutes.adminScreenShare, page: () => AdminScreenSharePage()),
         GetPage(name: AppRoutes.userWatch, page: () => UserWatchPage()),
         GetPage(name: AppRoutes.subscriptionManagement, page: () => SubscriptionManagementPage()),
+        GetPage(name: AppRoutes.termsAndConditions, page: () => TermsAndConditionsPage()),
       ],
     );
   }
