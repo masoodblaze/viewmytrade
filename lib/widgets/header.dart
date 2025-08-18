@@ -69,15 +69,15 @@ class _HeaderState extends State<Header> {
   }
 
   Widget _logo() {
-    return const Text(
-      "VMT",
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 26,
-        fontWeight: FontWeight.bold,
+    return SizedBox(
+      height: 60, // Adjust the height as needed
+      child: Image.asset(
+        'images/tradelogotrans.png', // Make sure this path is correct
+        fit: BoxFit.contain,
       ),
     );
   }
+
 
   List<Widget> _buildNavItems(User? user) {
     return [
