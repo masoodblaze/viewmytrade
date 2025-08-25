@@ -51,6 +51,7 @@ class DefaultFirebaseOptions {
     authDomain: 'viewouroptiontrade-5f91c.firebaseapp.com',
     storageBucket: 'viewouroptiontrade-5f91c.firebasestorage.app',
     measurementId: 'G-R75Q4QE96D',
+    databaseURL: 'https://viewouroptiontrade-5f91c-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -78,5 +79,6 @@ class DefaultFirebaseOptions {
     authDomain: 'viewouroptiontrade-5f91c.firebaseapp.com',
     storageBucket: 'viewouroptiontrade-5f91c.firebasestorage.app',
     measurementId: 'G-2FDFVWXNPP',
+    databaseURL: 'https://viewouroptiontrade-5f91c-default-rtdb.firebaseio.com',
   );
 }
