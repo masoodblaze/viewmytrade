@@ -83,7 +83,7 @@ class _HeaderState extends State<Header> {
     return [
       _navItem("Home", AppRoutes.home),
       _navItem("About", AppRoutes.aboutus),
-      if (user != null) _navItem("Join as Viewer", AppRoutes.userWatch),
+      if (user != null) _navItem("Join as Viewer", AppRoutes.tradingview),
       if (user == null)
         _navItem("Login", AppRoutes.login)
       else

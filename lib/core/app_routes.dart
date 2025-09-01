@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../presentation/pages/subscription_management_page.dart';
 import '../presentation/pages/terms_page.dart';
 import '../presentation/pages/user_watch_page.dart';
+import '../presentation/pages/viewer_screen_share_page.dart';
 
 class AppRoutes {
   static const String home = '/home';
@@ -15,6 +16,8 @@ class AppRoutes {
   static const String userWatch = '/user-watch';
   static const String subscriptionManagement = '/admin/subscriptions';
   static const String termsAndConditions = '/terms';
+  static const String tradingview = '/tradingview';
+
 
 
   static final routes = [
@@ -25,5 +28,6 @@ class AppRoutes {
     ),
     GetPage(name: userWatch, page: () => UserWatchPage()),
     GetPage(name: termsAndConditions, page: () => const TermsAndConditionsPage()),
+    GetPage(name: tradingview, page: () => ViewerScreenSharePage()),
   ];
 }

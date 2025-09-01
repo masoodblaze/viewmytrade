@@ -19,6 +19,23 @@ class _AdminHomePageState extends State<AdminHomePage> {
   String selectedRole = 'user';
   bool creating = false;
   String errorMsg = '';
+  bool sessionActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for session status
+    FirebaseFirestore.instance.collection('session')
+        .doc('current')
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          sessionActive = snapshot.exists && snapshot.data()?['active'] == true;
+        });
+      }
+    });
+  }
 
   Future<void> createUser() async {
     setState(() {
@@ -55,18 +72,27 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   Future<void> startSession() async {
     try {
-      await FirebaseFirestore.instance.collection('session').doc('current').set({
-        'active': true,
-        'startedAt': Timestamp.now(),
-      });
-      Get.snackbar("Session Started", "Users can now view the shared screen.",
-          snackPosition: SnackPosition.BOTTOM);
+      // Navigate to the screen sharing page - it will handle session creation
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => AdminScreenSharePage()),
       );
     } catch (e) {
       Get.snackbar("Error", "Failed to start session: ${e.toString()}",
+          snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red);
+    }
+  }
+
+  Future<void> stopSession() async {
+    try {
+      await FirebaseFirestore.instance.collection('session').doc('current').set({
+        'active': false,
+        'endedAt': DateTime.now(),
+      });
+      Get.snackbar("Session Stopped", "Screen sharing has been stopped.",
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar("Error", "Failed to stop session: ${e.toString()}",
           snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red);
     }
   }
@@ -105,92 +131,124 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 direction: isWide ? Axis.horizontal : Axis.vertical,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Create User Form
+                  // First Column - Session Management and User Creation
                   Expanded(
-                    flex: isWide ? 2 : 0,
-                    child: _buildCard(
-                      title: "Create New User",
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: emailCtrl,
-                            decoration:
-                            const InputDecoration(labelText: "Email"),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: passCtrl,
-                            obscureText: true,
-                            decoration:
-                            const InputDecoration(labelText: "Password"),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButton<String>(
-                            value: selectedRole,
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'user', child: Text('User')),
-                              DropdownMenuItem(
-                                  value: 'admin', child: Text('Admin')),
+                    flex: isWide ? 3 : 0,
+                    child: Column(
+                      children: [
+                        // Session Management Card
+                        _buildCard(
+                          title: "Session Management",
+                          child: Column(
+                            children: [
+                              // Session status indicator
+                              Row(
+                                children: [
+                                  Icon(
+                                    sessionActive ? Icons.videocam : Icons.videocam_off,
+                                    color: sessionActive ? Colors.green : Colors.red,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    sessionActive ? 'Session Active' : 'No Active Session',
+                                    style: TextStyle(
+                                      color: sessionActive ? Colors.green : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 16),
+
+                              // Start/Stop session button
+                              ElevatedButton(
+                                onPressed: sessionActive ? stopSession : startSession,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: sessionActive ? Colors.red : Colors.green,
+                                  minimumSize: Size(double.infinity, 50),
+                                ),
+                                child: Text(sessionActive ? "Stop Session" : "Start Screen Sharing"),
+                              ),
+                              SizedBox(height: 12),
+
+                              // Manage Subscription button
+                              ElevatedButton(
+                                onPressed: () => Get.toNamed('/admin/subscriptions'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  minimumSize: Size(double.infinity, 50),
+                                ),
+                                child: const Text("Manage Subscription"),
+                              ),
                             ],
-                            onChanged: (val) {
-                              setState(() {
-                                selectedRole = val!;
-                              });
-                            },
                           ),
-                          const SizedBox(height: 12),
-                          if (errorMsg.isNotEmpty)
-                            Text(errorMsg,
-                                style: const TextStyle(color: Colors.red)),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: creating ? null : createUser,
-                            child: creating
-                                ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2),
-                            )
-                                : const Text("Create"),
+                        ),
+
+                        SizedBox(height: isWide ? 0 : 16), // Vertical spacing only in mobile view
+
+                        // User Creation Card
+                        _buildCard(
+                          title: "Create New User",
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: emailCtrl,
+                                decoration: const InputDecoration(labelText: "Email"),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: passCtrl,
+                                obscureText: true,
+                                decoration: const InputDecoration(labelText: "Password"),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButton<String>(
+                                value: selectedRole,
+                                items: const [
+                                  DropdownMenuItem(value: 'user', child: Text('User')),
+                                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                                ],
+                                onChanged: (val) {
+                                  setState(() {
+                                    selectedRole = val!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              if (errorMsg.isNotEmpty)
+                                Text(errorMsg, style: const TextStyle(color: Colors.red)),
+                              const SizedBox(height: 8),
+                              ElevatedButton(
+                                onPressed: creating ? null : createUser,
+                                child: creating
+                                    ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                                    : const Text("Create User"),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: startSession,
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            child: const Text("Start Session"),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: () =>
-                                Get.toNamed('/admin/subscriptions'),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            child: const Text("Manage Subscription"),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
+
                   if (isWide) const SizedBox(width: 16) else const SizedBox(height: 16),
 
-                  // Registered Users
+                  // Second Column - Registered Users
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: _buildCard(
                       title: "Registered Users",
                       child: StreamBuilder<QuerySnapshot>(
                         stream: getUsersStream(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                                child: CircularProgressIndicator());
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
                           }
-                          if (!snapshot.hasData ||
-                              snapshot.data!.docs.isEmpty) {
+                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                             return const Text("No users found.");
                           }
 
@@ -214,23 +272,21 @@ class _AdminHomePageState extends State<AdminHomePage> {
                       ),
                     ),
                   ),
+
                   if (isWide) const SizedBox(width: 16) else const SizedBox(height: 16),
 
-                  // Subscribed Users
+                  // Third Column - Subscribed Users
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: _buildCard(
                       title: "Subscribed Users",
                       child: StreamBuilder<QuerySnapshot>(
                         stream: getSubscriptionsStream(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                                child: CircularProgressIndicator());
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
                           }
-                          if (!snapshot.hasData ||
-                              snapshot.data!.docs.isEmpty) {
+                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                             return const Text("No subscriptions found.");
                           }
 
@@ -242,8 +298,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                               itemCount: snapshot.data!.docs.length,
                               itemBuilder: (context, index) {
                                 final doc = snapshot.data!.docs[index];
-                                final createdAt =
-                                (doc['createdAt'] as Timestamp?)?.toDate();
+                                final createdAt = (doc['createdAt'] as Timestamp?)?.toDate();
                                 final formattedDate = createdAt != null
                                     ? DateFormat.yMMMd().add_jm().format(createdAt)
                                     : "Unknown date";
@@ -277,12 +332,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             SizedBox(
-              height: 300, // fixed scrollable height
+              height: 400, // increased height to accommodate session controls
               child: child,
             ),
           ],
